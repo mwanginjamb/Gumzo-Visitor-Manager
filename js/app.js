@@ -3,6 +3,7 @@ class VisitorManagementApp {
         this.db = new VisitorDB();
         this.currentVisitor = null;
         this.visitsData = []; // Store visits data for filtering
+        this.durationUpdateInterval = null;
         this.init();
     }
 
@@ -196,7 +197,7 @@ class VisitorManagementApp {
             if (!Array.isArray(visits) || visits.length === 0) {
                 console.log('No visits found in database');
                 const tbody = document.getElementById('visitorListBody');
-                tbody.innerHTML = '<tr><td colspan="6" class="text-center">No visits found</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="7" class="text-center">No visits found</td></tr>';
                 return;
             }
 
@@ -225,7 +226,7 @@ class VisitorManagementApp {
             if (allVisits.length === 0) {
                 console.log('No valid visits after processing');
                 const tbody = document.getElementById('visitorListBody');
-                tbody.innerHTML = '<tr><td colspan="6" class="text-center">No valid visits found</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="7" class="text-center">No valid visits found</td></tr>';
                 return;
             }
             
@@ -238,8 +239,33 @@ class VisitorManagementApp {
             console.error('Error loading visitor list:', error);
             this.showAlert('Error loading visitor list', 'danger');
             const tbody = document.getElementById('visitorListBody');
-            tbody.innerHTML = '<tr><td colspan="6" class="text-center text-danger">Error loading visitor list</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="7" class="text-center text-danger">Error loading visitor list</td></tr>';
         }
+    }
+
+    calculateDuration(ingressTime, egressTime = null) {
+        const start = moment(ingressTime);
+        const end = egressTime ? moment(egressTime) : moment();
+        const duration = moment.duration(end.diff(start));
+        
+        if (egressTime) {
+            const hours = Math.floor(duration.asHours());
+            const minutes = Math.floor(duration.minutes());
+            return `${hours}h ${minutes}m`;
+        } else {
+            return 'live-duration-' + start.toISOString();
+        }
+    }
+
+    updateLiveDurations() {
+        document.querySelectorAll('[id^="live-duration-"]').forEach(element => {
+            const ingressTime = element.getAttribute('data-ingress');
+            const duration = moment.duration(moment().diff(moment(ingressTime)));
+            const hours = Math.floor(duration.asHours());
+            const minutes = Math.floor(duration.minutes());
+            const seconds = Math.floor(duration.seconds());
+            element.textContent = `${hours}h ${minutes}m ${seconds}s`;
+        });
     }
 
     renderVisitorList(visits) {
@@ -256,8 +282,13 @@ class VisitorManagementApp {
 
             if (!visits || visits.length === 0) {
                 console.log('No visits to display');
-                tbody.innerHTML = '<tr><td colspan="6" class="text-center">No active visits found</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="7" class="text-center">No active visits found</td></tr>';
                 return;
+            }
+
+            // Clear previous interval if it exists
+            if (this.durationUpdateInterval) {
+                clearInterval(this.durationUpdateInterval);
             }
 
             visits.forEach((visit, index) => {
@@ -269,12 +300,21 @@ class VisitorManagementApp {
 
                 const row = document.createElement('tr');
                 const ingressTime = moment(visit.ingressTime).format('YYYY-MM-DD HH:mm');
+                const durationId = this.calculateDuration(visit.ingressTime, visit.egressTime);
                 
                 row.innerHTML = `
                     <td>${ingressTime}</td>
                     <td>${visit.visitor.fullName}</td>
                     <td>${visit.visitor.cellNumber}</td>
                     <td>${visit.visitor.idNumber}</td>
+                    <td>
+                        ${visit.egressTime ? 
+                            durationId : 
+                            `<span id="${durationId}" data-ingress="${visit.ingressTime}" class="badge bg-info">
+                                Calculating...
+                            </span>`
+                        }
+                    </td>
                     <td>
                         <span class="badge ${visit.egressTime ? 'bg-success' : 'bg-primary'}">
                             ${visit.egressTime ? 'Egressed' : 'Active'}
@@ -288,9 +328,14 @@ class VisitorManagementApp {
                 `;
                 tbody.appendChild(row);
             });
+
+            // Start updating live durations
+            this.updateLiveDurations();
+            this.durationUpdateInterval = setInterval(() => this.updateLiveDurations(), 1000);
+
         } catch (error) {
             console.error('Error rendering visitor list:', error);
-            tbody.innerHTML = '<tr><td colspan="6" class="text-center text-danger">Error rendering visitor list</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="7" class="text-center text-danger">Error rendering visitor list</td></tr>';
         }
     }
 
