@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Visitor Management System</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="styles.css" rel="stylesheet">
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <div class="container">
+            <a class="navbar-brand" href="#"><i class="fas fa-users-rectangle"></i> Visitor Management</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav">
+                    <li class="nav-item">
+                        <a class="nav-link" href="#" data-page="visitor-list">Visitor List</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#" data-page="new-visitor">New Visitor</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Visitor List Page -->
+    <div class="container mt-4 page" id="visitor-list">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Visitor List</h5>
+            </div>
+            <div class="card-body">
+                <div class="row mb-3">
+                    <div class="col-md-4">
+                        <input type="text" class="form-control" id="searchVisitor" placeholder="Search by name or ID number">
+                    </div>
+                    <div class="col-md-3">
+                        <select class="form-select" id="statusFilter">
+                            <option value="all">All Visits</option>
+                            <option value="active">Active Visits</option>
+                            <option value="egressed">Egressed Visits</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>Ingress Time</th>
+                                <th>Visitor Name</th>
+                                <th>Cell Number</th>
+                                <th>ID Number</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="visitorListBody">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- New Visitor Page -->
+    <div class="container mt-4 page" id="new-visitor" style="display: none;">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">New Visitor Registration</h5>
+            </div>
+            <div class="card-body">
+                <form id="visitorForm">
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Full Name</label>
+                            <input type="text" class="form-control" name="fullName" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">ID Number</label>
+                            <input type="text" class="form-control" name="idNumber" required>
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Cell Number</label>
+                            <input type="tel" class="form-control" name="cellNumber" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Purpose of Visit</label>
+                            <input type="text" class="form-control" name="purpose" required>
+                        </div>
+                    </div>
+                    
+                    <h6 class="mt-4">Visitor Items</h6>
+                    <div class="table-responsive">
+                        <table class="table table-bordered" id="itemsTable">
+                            <thead>
+                                <tr>
+                                    <th>Item</th>
+                                    <th>Unique Identifier</th>
+                                    <th>Type</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="itemsBody">
+                            </tbody>
+                        </table>
+                    </div>
+                    <button type="button" class="btn btn-secondary" id="addItemRow">
+                        <i class="fas fa-plus"></i> Add Item
+                    </button>
+                    
+                    <div class="mt-4">
+                        <button type="submit" class="btn btn-primary">Register Visitor</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Visitor Card Modal -->
+    <div class="modal fade" id="visitorCardModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Visitor Card</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body" id="visitorCardContent">
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    <button type="button" class="btn btn-danger" id="markEgress">Mark as Egressed</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.4/moment.min.js"></script>
+    <script src="js/db.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>

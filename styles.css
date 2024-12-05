@@ -1,0 +1,49 @@
+.navbar-brand i {
+    margin-right: 8px;
+}
+
+.table th {
+    background-color: #f8f9fa;
+}
+
+.visitor-card {
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    padding: 15px;
+    margin-bottom: 15px;
+}
+
+.visitor-card h6 {
+    color: #6c757d;
+    margin-bottom: 8px;
+}
+
+.action-buttons button {
+    margin-right: 5px;
+}
+
+.status-badge {
+    font-size: 0.875rem;
+    padding: 0.25rem 0.5rem;
+}
+
+.item-row input {
+    margin-bottom: 8px;
+}
+
+@media (max-width: 768px) {
+    .table-responsive {
+        margin-bottom: 15px;
+    }
+    
+    .action-buttons {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+    }
+    
+    .action-buttons button {
+        width: 100%;
+        margin-right: 0;
+    }
+}
