@@ -127,6 +127,31 @@ class VisitorDB {
         });
     }
 
+    async updateVisitItems(visitId, items) {
+        await this.ensureDB();
+        return new Promise((resolve, reject) => {
+            const transaction = this.db.transaction(['visits'], 'readwrite');
+            const store = transaction.objectStore('visits');
+            const request = store.get(visitId);
+
+            request.onsuccess = () => {
+                const visit = request.result;
+                if (!visit) {
+                    reject('Visit not found');
+                    return;
+                }
+
+                visit.items = items;
+                const updateRequest = store.put(visit);
+                
+                updateRequest.onsuccess = () => resolve(visit);
+                updateRequest.onerror = () => reject('Error updating visit items');
+            };
+
+            request.onerror = () => reject('Error getting visit for update');
+        });
+    }
+
     async getActiveVisits() {
         await this.ensureDB();
         return new Promise((resolve, reject) => {

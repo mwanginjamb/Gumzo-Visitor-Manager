@@ -321,8 +321,11 @@ class VisitorManagementApp {
                         </span>
                     </td>
                     <td class="action-buttons">
-                        <button class="btn btn-info btn-sm" onclick="app.viewVisitorCard(${visit.id})">
+                        <button class="btn btn-info btn-sm me-1" onclick="app.viewVisitorCard(${visit.id})">
                             <i class="fas fa-id-card"></i> View
+                        </button>
+                        <button class="btn btn-secondary btn-sm" onclick="app.duplicateVisit(${visit.id})">
+                            <i class="fas fa-copy"></i> Duplicate
                         </button>
                     </td>
                 `;
@@ -339,47 +342,133 @@ class VisitorManagementApp {
         }
     }
 
+    async duplicateVisit(visitId) {
+        try {
+            // Get the original visit and visitor data
+            const originalVisit = await this.db.getVisit(visitId);
+            if (!originalVisit) {
+                throw new Error('Visit not found');
+            }
+
+            const visitor = await this.db.getVisitor(originalVisit.visitorId);
+            if (!visitor) {
+                throw new Error('Visitor not found');
+            }
+
+            // Create new visit data with current timestamp
+            const newVisitData = {
+                visitorId: originalVisit.visitorId,
+                ingressTime: new Date().toISOString(),
+                items: JSON.parse(JSON.stringify(originalVisit.items)), // Deep copy items
+                purpose: originalVisit.purpose,
+                egressTime: null
+            };
+
+            // Add the new visit
+            await this.db.addVisit(newVisitData);
+            
+            // Refresh the list and show success message
+            await this.loadVisitorList();
+            this.showAlert('Visit duplicated successfully!', 'success');
+            
+            // Optionally, show the new visit card
+            const visits = await this.db.getAllVisits();
+            const newVisit = visits[visits.length - 1]; // Get the last added visit
+            if (newVisit) {
+                this.viewVisitorCard(newVisit.id);
+            }
+        } catch (error) {
+            console.error('Error duplicating visit:', error);
+            this.showAlert('Error duplicating visit: ' + error.message, 'danger');
+        }
+    }
+
     async viewVisitorCard(visitId) {
-        const visit = await this.db.getVisit(visitId);
-        const visitor = await this.db.getVisitor(visit.visitorId);
-        this.currentVisitor = { visit, visitor };
+        try {
+            const visit = await this.db.getVisit(visitId);
+            const visitor = await this.db.getVisitor(visit.visitorId);
+            this.currentVisitor = { visit, visitor };
 
-        const modal = document.getElementById('visitorCardContent');
-        modal.innerHTML = `
-            <div class="visitor-card">
-                <h6>Personal Information</h6>
-                <p><strong>Name:</strong> ${visitor.fullName}</p>
-                <p><strong>ID Number:</strong> ${visitor.idNumber}</p>
-                <p><strong>Cell Number:</strong> ${visitor.cellNumber}</p>
-                <p><strong>Purpose:</strong> ${visit.purpose}</p>
-                <p><strong>Ingress Time:</strong> ${moment(visit.ingressTime).format('YYYY-MM-DD HH:mm')}</p>
-                ${visit.egressTime ? `<p><strong>Egress Time:</strong> ${moment(visit.egressTime).format('YYYY-MM-DD HH:mm')}</p>` : ''}
-            </div>
-            <div class="visitor-card">
-                <h6>Items</h6>
-                <table class="table table-sm">
-                    <thead>
-                        <tr>
-                            <th>Item</th>
-                            <th>Identifier</th>
-                            <th>Type</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${visit.items.map(item => `
+            const modal = document.getElementById('visitorCardContent');
+            modal.innerHTML = `
+                <div class="visitor-card">
+                    <h6>Personal Information</h6>
+                    <p><strong>Name:</strong> ${visitor.fullName}</p>
+                    <p><strong>ID Number:</strong> ${visitor.idNumber}</p>
+                    <p><strong>Cell Number:</strong> ${visitor.cellNumber}</p>
+                    <p><strong>Purpose:</strong> ${visit.purpose}</p>
+                    <p><strong>Ingress Time:</strong> ${moment(visit.ingressTime).format('YYYY-MM-DD HH:mm')}</p>
+                    ${visit.egressTime ? `<p><strong>Egress Time:</strong> ${moment(visit.egressTime).format('YYYY-MM-DD HH:mm')}</p>` : ''}
+                    <p><strong>Duration:</strong> <span class="${visit.egressTime ? '' : 'badge bg-info'}" 
+                        ${!visit.egressTime ? `id="live-duration-${visit.id}" data-ingress="${visit.ingressTime}"` : ''}>
+                        ${this.calculateDuration(visit.ingressTime, visit.egressTime)}
+                    </span></p>
+                </div>
+                <div class="visitor-card">
+                    <h6>Items</h6>
+                    <table class="table table-sm">
+                        <thead>
                             <tr>
-                                <td>${item.name}</td>
-                                <td>${item.identifier}</td>
-                                <td>${item.type}</td>
+                                <th>Item</th>
+                                <th>Identifier</th>
+                                <th>Type</th>
+                                ${!visit.egressTime ? '<th>Actions</th>' : ''}
                             </tr>
-                        `).join('')}
-                    </tbody>
-                </table>
-            </div>
-        `;
+                        </thead>
+                        <tbody>
+                            ${visit.items.map((item, index) => `
+                                <tr>
+                                    <td>${item.name}</td>
+                                    <td>${item.identifier}</td>
+                                    <td>${item.type}</td>
+                                    ${!visit.egressTime ? `
+                                        <td>
+                                            <button class="btn btn-danger btn-sm" onclick="app.deleteVisitorItem(${visit.id}, ${index})">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        </td>
+                                    ` : ''}
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            `;
 
-        const visitorModal = new bootstrap.Modal(document.getElementById('visitorCardModal'));
-        visitorModal.show();
+            const visitorModal = new bootstrap.Modal(document.getElementById('visitorCardModal'));
+            visitorModal.show();
+
+            // Update duration if active visit
+            if (!visit.egressTime) {
+                this.updateLiveDurations();
+            }
+        } catch (error) {
+            console.error('Error viewing visitor card:', error);
+            this.showAlert('Error viewing visitor details', 'danger');
+        }
+    }
+
+    async deleteVisitorItem(visitId, itemIndex) {
+        try {
+            const visit = await this.db.getVisit(visitId);
+            if (!visit || visit.egressTime) {
+                throw new Error('Cannot delete item: Visit not found or already egressed');
+            }
+
+            // Remove the item at the specified index
+            const updatedItems = [...visit.items];
+            updatedItems.splice(itemIndex, 1);
+
+            // Update the visit with the new items array
+            await this.db.updateVisitItems(visitId, updatedItems);
+
+            // Refresh the visitor card
+            await this.viewVisitorCard(visitId);
+            this.showAlert('Item deleted successfully', 'success');
+        } catch (error) {
+            console.error('Error deleting visitor item:', error);
+            this.showAlert('Error deleting item: ' + error.message, 'danger');
+        }
     }
 
     async markVisitorEgress() {
