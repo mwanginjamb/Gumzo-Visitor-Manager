@@ -7,14 +7,20 @@ class VisitorManagementApp {
         this.init();
     }
 
-    async init() {
-        try {
-            await this.db.dbReady;
-            this.initializeEventListeners();
-            await this.loadVisitorList();
-        } catch (error) {
-            this.showAlert('Error initializing database. Please refresh the page.', 'danger');
-        }
+    init() {
+        // Initialize the database
+        this.db = new VisitorDB();
+        this.db.init().then(() => {
+            // Add event listeners
+            document.getElementById('searchInput')?.addEventListener('input', () => this.filterVisits());
+            document.getElementById('statusFilter')?.addEventListener('change', () => this.filterVisits());
+            
+            // Show initial page
+            this.showPage('visitor-list');
+        }).catch(error => {
+            console.error('Error initializing app:', error);
+            this.showAlert('Error initializing application: ' + error.message, 'danger');
+        });
     }
 
     initializeEventListeners() {
@@ -83,10 +89,53 @@ class VisitorManagementApp {
     }
 
     showPage(pageId) {
-        document.querySelectorAll('.page').forEach(page => {
-            page.style.display = 'none';
-        });
-        document.getElementById(pageId).style.display = 'block';
+        try {
+            // Get all pages
+            const pages = document.querySelectorAll('.page');
+            if (!pages || pages.length === 0) {
+                console.error('No pages found with class "page"');
+                return;
+            }
+
+            // Hide all pages and remove active class
+            pages.forEach(page => {
+                if (page) {
+                    page.style.display = 'none';
+                    page.classList.remove('active');
+                }
+            });
+
+            // Show the selected page
+            const selectedPage = document.getElementById(pageId);
+            if (!selectedPage) {
+                console.error(`Page with id "${pageId}" not found`);
+                return;
+            }
+
+            selectedPage.style.display = 'block';
+            selectedPage.classList.add('active');
+
+            // Update navigation buttons if they exist
+            const buttons = document.querySelectorAll('[onclick*="showPage"]');
+            buttons.forEach(button => {
+                if (button.onclick.toString().includes(pageId)) {
+                    button.classList.add('active');
+                } else {
+                    button.classList.remove('active');
+                }
+            });
+
+            // Special handling for specific pages
+            if (pageId === 'visitor-list') {
+                this.loadVisitorList();
+            }
+
+            // Scroll to top of page
+            window.scrollTo(0, 0);
+        } catch (error) {
+            console.error('Error showing page:', error);
+            this.showAlert('Error navigating to page: ' + error.message, 'danger');
+        }
     }
 
     async searchVisitors(query) {
@@ -268,118 +317,273 @@ class VisitorManagementApp {
         });
     }
 
-    renderVisitorList(visits) {
-        console.log('Rendering visitor list with data:', visits);
+    async renderVisitorList(visits) {
         const tbody = document.getElementById('visitorListBody');
-        
         if (!tbody) {
-            console.error('Could not find visitorListBody element');
+            console.error('Visitor list tbody not found');
             return;
         }
 
-        try {
-            tbody.innerHTML = '';
+        tbody.innerHTML = '';
 
-            if (!visits || visits.length === 0) {
-                console.log('No visits to display');
-                tbody.innerHTML = '<tr><td colspan="7" class="text-center">No active visits found</td></tr>';
-                return;
-            }
+        if (!visits || visits.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="8" class="text-center">No visits found</td></tr>';
+            return;
+        }
 
-            // Clear previous interval if it exists
-            if (this.durationUpdateInterval) {
-                clearInterval(this.durationUpdateInterval);
-            }
-
-            visits.forEach((visit, index) => {
-                console.log(`Rendering visit ${index}:`, visit);
-                if (!visit.visitor) {
-                    console.error(`Visit ${index} has no visitor data:`, visit);
-                    return;
+        for (const visit of visits) {
+            try {
+                const visitor = await this.db.getVisitor(visit.visitorId);
+                if (!visitor) {
+                    console.error('Visitor not found for visit:', visit);
+                    continue;
                 }
 
                 const row = document.createElement('tr');
-                const ingressTime = moment(visit.ingressTime).format('YYYY-MM-DD HH:mm');
-                const durationId = this.calculateDuration(visit.ingressTime, visit.egressTime);
-                
                 row.innerHTML = `
-                    <td>${ingressTime}</td>
-                    <td>${visit.visitor.fullName}</td>
-                    <td>${visit.visitor.cellNumber}</td>
-                    <td>${visit.visitor.idNumber}</td>
+                    <td>${this.escapeHtml(visitor.fullName)}</td>
+                    <td>${this.escapeHtml(visitor.idNumber)}</td>
+                    <td>${this.escapeHtml(visitor.cellNumber)}</td>
+                    <td>${this.escapeHtml(visit.purpose)}</td>
+                    <td>${moment(visit.ingressTime).format('YYYY-MM-DD HH:mm')}</td>
+                    <td>${visit.egressTime ? moment(visit.egressTime).format('YYYY-MM-DD HH:mm') : '-'}</td>
                     <td>
-                        ${visit.egressTime ? 
-                            durationId : 
-                            `<span id="${durationId}" data-ingress="${visit.ingressTime}" class="badge bg-info">
-                                Calculating...
-                            </span>`
-                        }
-                    </td>
-                    <td>
-                        <span class="badge ${visit.egressTime ? 'bg-success' : 'bg-primary'}">
-                            ${visit.egressTime ? 'Egressed' : 'Active'}
+                        <span class="${visit.egressTime ? '' : 'badge bg-info'}" 
+                            ${!visit.egressTime ? `id="live-duration-${visit.id}" data-ingress="${visit.ingressTime}"` : ''}>
+                            ${this.calculateDuration(visit.ingressTime, visit.egressTime)}
                         </span>
                     </td>
                     <td class="action-buttons">
                         <button class="btn btn-info btn-sm me-1" onclick="app.viewVisitorCard(${visit.id})">
-                            <i class="fas fa-id-card"></i> View
+                            <i class="fas fa-eye"></i> View
                         </button>
-                        <button class="btn btn-secondary btn-sm" onclick="app.duplicateVisit(${visit.id})">
-                            <i class="fas fa-copy"></i> Duplicate
-                        </button>
+                        ${!visit.egressTime ? `
+                            <button class="btn btn-warning btn-sm me-1" onclick="app.editVisit(${visit.id})">
+                                <i class="fas fa-edit"></i> Update
+                            </button>
+                            <button class="btn btn-danger btn-sm" onclick="app.markVisitorEgress(${visit.id})">
+                                <i class="fas fa-sign-out-alt"></i> Egress
+                            </button>
+                        ` : ''}
                     </td>
                 `;
                 tbody.appendChild(row);
-            });
+            } catch (error) {
+                console.error('Error rendering visit:', visit, error);
+            }
+        }
 
-            // Start updating live durations
-            this.updateLiveDurations();
-            this.durationUpdateInterval = setInterval(() => this.updateLiveDurations(), 1000);
+        // Start updating live durations
+        this.updateLiveDurations();
+    }
 
+    escapeHtml(unsafe) {
+        if (!unsafe) return '';
+        return unsafe
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
+    }
+
+    async loadVisitorList() {
+        try {
+            const visits = await this.db.getAllVisits();
+            if (!visits) {
+                console.error('No visits returned from database');
+                return;
+            }
+            await this.renderVisitorList(visits);
         } catch (error) {
-            console.error('Error rendering visitor list:', error);
-            tbody.innerHTML = '<tr><td colspan="7" class="text-center text-danger">Error rendering visitor list</td></tr>';
+            console.error('Error loading visitor list:', error);
+            this.showAlert('Error loading visitor list: ' + error.message, 'danger');
         }
     }
 
-    async duplicateVisit(visitId) {
+    async filterVisits() {
         try {
-            // Get the original visit and visitor data
-            const originalVisit = await this.db.getVisit(visitId);
-            if (!originalVisit) {
+            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+            const statusFilter = document.getElementById('statusFilter').value;
+            
+            let visits = await this.db.getAllVisits();
+            
+            // Filter by status
+            if (statusFilter !== 'all') {
+                visits = visits.filter(visit => {
+                    if (statusFilter === 'active') return !visit.egressTime;
+                    if (statusFilter === 'egressed') return visit.egressTime;
+                    return true;
+                });
+            }
+
+            // Filter by search term
+            if (searchTerm) {
+                const filteredVisits = [];
+                for (const visit of visits) {
+                    const visitor = await this.db.getVisitor(visit.visitorId);
+                    if (visitor.fullName.toLowerCase().includes(searchTerm) ||
+                        visitor.idNumber.toLowerCase().includes(searchTerm) ||
+                        visitor.cellNumber.toLowerCase().includes(searchTerm) ||
+                        visit.purpose.toLowerCase().includes(searchTerm)) {
+                        filteredVisits.push(visit);
+                    }
+                }
+                visits = filteredVisits;
+            }
+
+            await this.renderVisitorList(visits);
+        } catch (error) {
+            console.error('Error filtering visits:', error);
+            this.showAlert('Error filtering visits: ' + error.message, 'danger');
+        }
+    }
+
+    async editVisit(visitId) {
+        try {
+            const visit = await this.db.getVisit(visitId);
+            if (!visit) {
                 throw new Error('Visit not found');
             }
 
-            const visitor = await this.db.getVisitor(originalVisit.visitorId);
+            const visitor = await this.db.getVisitor(visit.visitorId);
             if (!visitor) {
                 throw new Error('Visitor not found');
             }
+            
+            // Store current visit for update
+            this.currentVisitor = { visit, visitor };
 
-            // Create new visit data with current timestamp
-            const newVisitData = {
-                visitorId: originalVisit.visitorId,
-                ingressTime: new Date().toISOString(),
-                items: JSON.parse(JSON.stringify(originalVisit.items)), // Deep copy items
-                purpose: originalVisit.purpose,
-                egressTime: null
+            // Show update page first
+            this.showPage('update-visit');
+
+            // Get form elements after page is shown
+            const form = document.getElementById('updateVisitorForm');
+            if (!form) {
+                throw new Error('Update form not found');
+            }
+
+            // Get form input elements
+            const fullNameInput = form.querySelector('[name="fullName"]');
+            const idNumberInput = form.querySelector('[name="idNumber"]');
+            const cellNumberInput = form.querySelector('[name="cellNumber"]');
+            const purposeInput = form.querySelector('[name="purpose"]');
+
+            if (!fullNameInput || !idNumberInput || !cellNumberInput || !purposeInput) {
+                throw new Error('Required form fields not found');
+            }
+
+            // Populate form fields
+            fullNameInput.value = visitor.fullName || '';
+            idNumberInput.value = visitor.idNumber || '';
+            cellNumberInput.value = visitor.cellNumber || '';
+            purposeInput.value = visit.purpose || '';
+
+            // Populate items table
+            const itemsBody = document.getElementById('updateItemsBody');
+            if (!itemsBody) {
+                throw new Error('Items table body not found');
+            }
+
+            itemsBody.innerHTML = '';
+            if (Array.isArray(visit.items)) {
+                visit.items.forEach((item, index) => {
+                    const row = this.createUpdateItemRow(item, index);
+                    itemsBody.appendChild(row);
+                });
+            }
+
+            // Setup event listeners
+            const addItemButton = document.getElementById('addUpdateItemRow');
+            if (addItemButton) {
+                addItemButton.onclick = () => {
+                    const newRow = this.createUpdateItemRow({ name: '', identifier: '', type: '' }, itemsBody.children.length);
+                    itemsBody.appendChild(newRow);
+                };
+            }
+
+            form.onsubmit = (e) => this.handleUpdateVisit(e);
+
+        } catch (error) {
+            console.error('Error preparing visit update:', error);
+            this.showAlert('Error loading visit data: ' + error.message, 'danger');
+            this.showPage('visitor-list'); // Return to list on error
+        }
+    }
+
+    createUpdateItemRow(item, index) {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td>
+                <input type="text" class="form-control" name="itemName" 
+                    value="${this.escapeHtml(item.name || '')}" required>
+            </td>
+            <td>
+                <input type="text" class="form-control" name="itemIdentifier" 
+                    value="${this.escapeHtml(item.identifier || '')}" required>
+            </td>
+            <td>
+                <input type="text" class="form-control" name="itemType" 
+                    value="${this.escapeHtml(item.type || '')}" required>
+            </td>
+            <td>
+                <button type="button" class="btn btn-danger btn-sm" onclick="this.closest('tr').remove()">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </td>
+        `;
+        return row;
+    }
+
+    async handleUpdateVisit(e) {
+        e.preventDefault();
+        try {
+            const form = e.target;
+            const itemRows = document.getElementById('updateItemsBody').children;
+            
+            if (!this.currentVisitor) {
+                throw new Error('No visitor data found for update');
+            }
+            
+            // Collect items data
+            const items = Array.from(itemRows).map(row => ({
+                name: row.querySelector('[name="itemName"]').value.trim(),
+                identifier: row.querySelector('[name="itemIdentifier"]').value.trim(),
+                type: row.querySelector('[name="itemType"]').value.trim()
+            }));
+
+            // Validate required fields
+            const fullName = form.querySelector('[name="fullName"]').value.trim();
+            const cellNumber = form.querySelector('[name="cellNumber"]').value.trim();
+            const purpose = form.querySelector('[name="purpose"]').value.trim();
+
+            if (!fullName || !cellNumber || !purpose) {
+                throw new Error('Please fill in all required fields');
+            }
+
+            // Prepare visitor and visit data
+            const visitorData = {
+                ...this.currentVisitor.visitor,
+                fullName,
+                cellNumber
             };
 
-            // Add the new visit
-            await this.db.addVisit(newVisitData);
-            
-            // Refresh the list and show success message
+            const visitData = {
+                ...this.currentVisitor.visit,
+                purpose,
+                items
+            };
+
+            // Update in database
+            await this.db.updateVisit(this.currentVisitor.visit.id, visitData, visitorData);
+
+            // Show success and return to list
+            this.showAlert('Visit updated successfully', 'success');
             await this.loadVisitorList();
-            this.showAlert('Visit duplicated successfully!', 'success');
-            
-            // Optionally, show the new visit card
-            const visits = await this.db.getAllVisits();
-            const newVisit = visits[visits.length - 1]; // Get the last added visit
-            if (newVisit) {
-                this.viewVisitorCard(newVisit.id);
-            }
+            this.showPage('visitor-list');
         } catch (error) {
-            console.error('Error duplicating visit:', error);
-            this.showAlert('Error duplicating visit: ' + error.message, 'danger');
+            console.error('Error updating visit:', error);
+            this.showAlert('Error updating visit: ' + error.message, 'danger');
         }
     }
 
@@ -412,22 +616,14 @@ class VisitorManagementApp {
                                 <th>Item</th>
                                 <th>Identifier</th>
                                 <th>Type</th>
-                                ${!visit.egressTime ? '<th>Actions</th>' : ''}
                             </tr>
                         </thead>
                         <tbody>
-                            ${visit.items.map((item, index) => `
+                            ${visit.items.map(item => `
                                 <tr>
                                     <td>${item.name}</td>
                                     <td>${item.identifier}</td>
                                     <td>${item.type}</td>
-                                    ${!visit.egressTime ? `
-                                        <td>
-                                            <button class="btn btn-danger btn-sm" onclick="app.deleteVisitorItem(${visit.id}, ${index})">
-                                                <i class="fas fa-trash"></i>
-                                            </button>
-                                        </td>
-                                    ` : ''}
                                 </tr>
                             `).join('')}
                         </tbody>
@@ -481,6 +677,20 @@ class VisitorManagementApp {
             
             const modal = bootstrap.Modal.getInstance(document.getElementById('visitorCardModal'));
             modal.hide();
+            
+            this.loadVisitorList();
+            this.showAlert('Visitor marked as egressed', 'success');
+        } catch (error) {
+            console.error('Error marking visitor egress:', error);
+            this.showAlert('Error marking visitor egress', 'danger');
+        }
+    }
+
+    async markVisitorEgress(visitId) {
+        try {
+            await this.db.updateVisit(visitId, {
+                egressTime: new Date()
+            });
             
             this.loadVisitorList();
             this.showAlert('Visitor marked as egressed', 'success');

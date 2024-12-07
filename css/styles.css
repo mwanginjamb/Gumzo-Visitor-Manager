@@ -1,0 +1,61 @@
+/* Page Styles */
+.page {
+    display: none;
+}
+
+.page.active {
+    display: block;
+}
+
+/* Table Styles */
+.table-responsive {
+    margin-bottom: 1rem;
+}
+
+.action-buttons {
+    white-space: nowrap;
+}
+
+/* Form Styles */
+.form-label {
+    font-weight: 500;
+}
+
+/* Card Styles */
+.card {
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+    margin-bottom: 1rem;
+}
+
+/* Alert Styles */
+.alert {
+    margin-top: 1rem;
+}
+
+/* Button Styles */
+.btn-sm {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.875rem;
+}
+
+/* Visitor Card Styles */
+.visitor-card {
+    margin-bottom: 1.5rem;
+}
+
+.visitor-card h6 {
+    margin-bottom: 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid #dee2e6;
+}
+
+/* Duration Badge */
+.badge {
+    font-size: 0.875rem;
+    padding: 0.35em 0.65em;
+}
+
+/* Navigation */
+.btn.active {
+    box-shadow: inset 0 3px 5px rgba(0, 0, 0, 0.125);
+}

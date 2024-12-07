@@ -107,23 +107,48 @@ class VisitorDB {
         });
     }
 
-    async updateVisit(visitId, updates) {
+    async updateVisit(visitId, visitData, visitorData) {
         await this.ensureDB();
-        return new Promise((resolve, reject) => {
-            const transaction = this.db.transaction(['visits'], 'readwrite');
-            const store = transaction.objectStore('visits');
-            const request = store.get(visitId);
+        return new Promise(async (resolve, reject) => {
+            try {
+                // Update visitor data first
+                const visitorTx = this.db.transaction(['visitors'], 'readwrite');
+                const visitorStore = visitorTx.objectStore('visitors');
+                await new Promise((res, rej) => {
+                    const request = visitorStore.put(visitorData);
+                    request.onsuccess = () => res();
+                    request.onerror = () => rej('Error updating visitor');
+                });
 
-            request.onsuccess = () => {
-                const visit = request.result;
-                const updatedVisit = { ...visit, ...updates };
-                const updateRequest = store.put(updatedVisit);
-                
-                updateRequest.onsuccess = () => resolve(updatedVisit);
-                updateRequest.onerror = () => reject('Error updating visit');
-            };
+                // Then update visit data
+                const visitTx = this.db.transaction(['visits'], 'readwrite');
+                const visitStore = visitTx.objectStore('visits');
+                const request = visitStore.get(visitId);
 
-            request.onerror = () => reject('Error getting visit for update');
+                request.onsuccess = () => {
+                    const visit = request.result;
+                    if (!visit) {
+                        reject('Visit not found');
+                        return;
+                    }
+
+                    // Update visit fields while preserving timestamps
+                    const updatedVisit = {
+                        ...visit,
+                        ...visitData,
+                        ingressTime: visit.ingressTime, // Preserve original timestamp
+                        visitorId: visit.visitorId // Preserve visitor reference
+                    };
+
+                    const updateRequest = visitStore.put(updatedVisit);
+                    updateRequest.onsuccess = () => resolve(updatedVisit);
+                    updateRequest.onerror = () => reject('Error updating visit');
+                };
+
+                request.onerror = () => reject('Error getting visit for update');
+            } catch (error) {
+                reject(error);
+            }
         });
     }
 
