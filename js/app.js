@@ -3,8 +3,25 @@ class VisitorManagementApp {
         this.db = new VisitorDB();
         this.currentVisitor = null;
         this.visitsData = []; // Store visits data for filtering
-        this.durationUpdateInterval = null;
-        this.init();
+        this.durationUpdateInterval = 1000;
+        document.addEventListener('DOMContentLoaded', () => {
+            this.db = new VisitorDB();
+            this.db.init().then(() => {
+                this.initializeEventListeners();
+                // Add event listeners
+                document.getElementById('searchVisitor')?.addEventListener('input', () => this.filterVisits());
+                document.getElementById('statusFilter')?.addEventListener('change', () => this.filterVisits());
+                // Update Live durations
+                setInterval(this.updateLiveDurations, this.durationUpdateInterval)
+
+                // Show initial page
+                this.showPage('visitor-list');
+
+            }).catch(error => {
+                console.error('Error initializing app:', error);
+                this.showAlert('Error initializing application: ' + error.message, 'danger');
+            });
+        });
     }
 
     init() {
@@ -12,7 +29,7 @@ class VisitorManagementApp {
         this.db = new VisitorDB();
         this.db.init().then(() => {
             // Add event listeners
-            document.getElementById('searchInput')?.addEventListener('input', () => this.filterVisits());
+            document.getElementById('searchVisitor')?.addEventListener('input', () => this.filterVisits());
             document.getElementById('statusFilter')?.addEventListener('change', () => this.filterVisits());
 
             // Show initial page
@@ -28,6 +45,7 @@ class VisitorManagementApp {
         document.querySelectorAll('.nav-link').forEach(link => {
             link.addEventListener('click', (e) => {
                 e.preventDefault();
+                console.log(`Loading page: ${e.target.dataset.page}`);
                 this.showPage(e.target.dataset.page);
             });
         });
@@ -56,10 +74,15 @@ class VisitorManagementApp {
         document.getElementById('markEgress').addEventListener('click', () => {
             this.handleVisitorEgress();
         });
+
+        document.querySelector('[data-page="new-visitor"]')?.addEventListener('click', (event) => {
+            event.preventDefault();
+            this.showPage('new-visitor');
+        });
     }
 
     filterVisits() {
-        const searchInputElement = document.getElementById('searchInput');
+        const searchInputElement = document.getElementById('searchVisitor');
         const statusFilterElement = document.getElementById('statusFilter');
 
         if (!searchInputElement || !statusFilterElement) {
@@ -411,7 +434,7 @@ class VisitorManagementApp {
 
     async filterVisits() {
         try {
-            const searchInputElement = document.getElementById('searchInput');
+            const searchInputElement = document.getElementById('searchVisitor');
             const statusFilterElement = document.getElementById('statusFilter');
 
             if (!searchInputElement || !statusFilterElement) {
