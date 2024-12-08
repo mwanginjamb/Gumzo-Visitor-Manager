@@ -216,8 +216,8 @@ class VisitorManagementApp {
 
                 form.reset();
                 document.getElementById('itemsBody').innerHTML = '';
-                this.showPage('visitor-list');
                 await this.loadVisitorList();
+                this.showPage('visitor-list');
 
                 this.showAlert('Visitor registered successfully!', 'success');
             } catch (error) {
