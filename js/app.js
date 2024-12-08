@@ -8,9 +8,6 @@ class VisitorManagementApp {
             this.db = new VisitorDB();
             this.db.init().then(() => {
                 this.initializeEventListeners();
-                // Add event listeners
-                document.getElementById('searchVisitor')?.addEventListener('input', () => this.filterVisits());
-                document.getElementById('statusFilter')?.addEventListener('change', () => this.filterVisits());
                 // Update Live durations
                 setInterval(this.updateLiveDurations, this.durationUpdateInterval)
 
@@ -28,10 +25,6 @@ class VisitorManagementApp {
         // Initialize the database
         this.db = new VisitorDB();
         this.db.init().then(() => {
-            // Add event listeners
-            document.getElementById('searchVisitor')?.addEventListener('input', () => this.filterVisits());
-            document.getElementById('statusFilter')?.addEventListener('change', () => this.filterVisits());
-
             // Show initial page
             this.showPage('visitor-list');
         }).catch(error => {
@@ -376,7 +369,8 @@ class VisitorManagementApp {
 
         for (const visit of visits) {
             try {
-                const visitor = await this.db.getVisitor(visit.visitorId);
+                // If visitor data is already included in the visit object, use it
+                const visitor = visit.visitor || await this.db.getVisitor(visit.visitorId);
                 if (!visitor) {
                     console.error('Visitor not found for visit:', visit);
                     continue;
