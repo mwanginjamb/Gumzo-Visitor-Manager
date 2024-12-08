@@ -4,12 +4,17 @@ class VisitorManagementApp {
         this.currentVisitor = null;
         this.visitsData = []; // Store visits data for filtering
         this.durationUpdateInterval = 1000;
+        this.syncInterval = 5 * 60 * 1000; // 5 minutes
+        this.apiBaseUrl = 'http://localhost:3000/api';
+
         document.addEventListener('DOMContentLoaded', () => {
             this.db = new VisitorDB();
             this.db.init().then(() => {
                 this.initializeEventListeners();
                 // Update Live durations
                 setInterval(this.updateLiveDurations, this.durationUpdateInterval)
+                // Start periodic sync
+                this.startSync();
 
                 // Show initial page
                 this.showPage('visitor-list');
@@ -794,7 +799,50 @@ class VisitorManagementApp {
         }
     }
 
-    showAlert(message, type) {
+    async syncWithBackend() {
+        try {
+            // Get all visitors and visits from IndexedDB
+            const visitors = await this.db.getAllVisitors();
+            const visits = await this.db.getAllVisits();
+
+            // Send data to backend
+            const response = await fetch(`${this.apiBaseUrl}/sync`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ visitors, visits })
+            });
+
+            if (!response.ok) {
+                throw new Error('Sync failed');
+            }
+
+            const result = await response.json();
+            console.log('Sync successful:', result);
+
+            // Optionally show a success message
+            this.showAlert('Data synchronized with server', 'success', 2000);
+        } catch (error) {
+            console.error('Sync error:', error);
+            // Show error message only if it's not a network error (server might be offline)
+            if (error.name !== 'TypeError') {
+                this.showAlert('Error syncing with server', 'warning', 3000);
+            }
+        }
+    }
+
+    startSync() {
+        // Initial sync
+        this.syncWithBackend();
+
+        // Set up periodic sync
+        setInterval(() => {
+            this.syncWithBackend();
+        }, this.syncInterval);
+    }
+
+    showAlert(message, type, duration = 3000) {
         const alertDiv = document.createElement('div');
         alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
         alertDiv.innerHTML = `
@@ -803,7 +851,7 @@ class VisitorManagementApp {
         `;
 
         document.querySelector('.container').insertAdjacentElement('afterbegin', alertDiv);
-        setTimeout(() => alertDiv.remove(), 3000);
+        setTimeout(() => alertDiv.remove(), duration);
     }
 }
 
