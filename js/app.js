@@ -449,47 +449,59 @@ class VisitorManagementApp {
 
     async filterVisits() {
         try {
-            const searchInputElement = document.getElementById('searchVisitor');
-            const statusFilterElement = document.getElementById('statusFilter');
+            const searchTerm = document.getElementById('searchVisitor')?.value.toLowerCase() || '';
+            const statusFilter = document.getElementById('statusFilter')?.value || 'all';
 
-            if (!searchInputElement || !statusFilterElement) {
-                console.error('Search input or status filter element not found');
+            const visits = await this.db.getAllVisits();
+            if (!visits || visits.length === 0) {
+                this.renderVisitorList([]);
                 return;
             }
 
-            const searchTerm = searchInputElement.value.toLowerCase();
-            const statusFilter = statusFilterElement.value;
+            // Get all visitors for the visits
+            const visitorsMap = new Map();
+            for (const visit of visits) {
+                if (!visitorsMap.has(visit.visitorId)) {
+                    const visitor = await this.db.getVisitor(visit.visitorId);
+                    if (visitor) {
+                        visitorsMap.set(visit.visitorId, visitor);
+                    }
+                }
+            }
 
-            let visits = await this.db.getAllVisits();
+            // Combine visits with visitor data
+            let filteredVisits = visits.map(visit => ({
+                ...visit,
+                visitor: visitorsMap.get(visit.visitorId)
+            })).filter(visit => visit.visitor); // Remove visits without visitor data
 
-            // Filter by status
+            // Apply status filter
             if (statusFilter !== 'all') {
-                visits = visits.filter(visit => {
+                filteredVisits = filteredVisits.filter(visit => {
                     if (statusFilter === 'active') return !visit.egressTime;
                     if (statusFilter === 'egressed') return visit.egressTime;
                     return true;
                 });
             }
 
-            // Filter by search term
+            // Apply search filter
             if (searchTerm) {
-                const filteredVisits = [];
-                for (const visit of visits) {
-                    const visitor = await this.db.getVisitor(visit.visitorId);
-                    if (visitor.fullName.toLowerCase().includes(searchTerm) ||
-                        visitor.idNumber.toLowerCase().includes(searchTerm) ||
-                        visitor.cellNumber.toLowerCase().includes(searchTerm) ||
-                        visit.purpose.toLowerCase().includes(searchTerm)) {
-                        filteredVisits.push(visit);
-                    }
-                }
-                visits = filteredVisits;
+                filteredVisits = filteredVisits.filter(visit => {
+                    const visitor = visit.visitor;
+                    return visitor.fullName.toLowerCase().includes(searchTerm) ||
+                           visitor.idNumber.toLowerCase().includes(searchTerm) ||
+                           visitor.cellNumber.toLowerCase().includes(searchTerm);
+                });
             }
 
-            await this.renderVisitorList(visits);
+            // Sort by ingress time
+            filteredVisits.sort((a, b) => new Date(b.ingressTime) - new Date(a.ingressTime));
+
+            this.renderVisitorList(filteredVisits);
         } catch (error) {
             console.error('Error filtering visits:', error);
-            this.showAlert('Error filtering visits: ' + error.message, 'danger');
+            this.showAlert('Error filtering visits', 'danger');
+            this.renderVisitorList([]);
         }
     }
 
