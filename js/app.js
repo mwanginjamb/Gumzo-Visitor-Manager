@@ -14,7 +14,7 @@ class VisitorManagementApp {
             // Add event listeners
             document.getElementById('searchInput')?.addEventListener('input', () => this.filterVisits());
             document.getElementById('statusFilter')?.addEventListener('change', () => this.filterVisits());
-            
+
             // Show initial page
             this.showPage('visitor-list');
         }).catch(error => {
@@ -54,13 +54,21 @@ class VisitorManagementApp {
 
         // Mark egress
         document.getElementById('markEgress').addEventListener('click', () => {
-            this.markVisitorEgress();
+            this.handleVisitorEgress();
         });
     }
 
     filterVisits() {
-        const searchTerm = document.getElementById('searchVisitor').value.toLowerCase();
-        const statusFilter = document.getElementById('statusFilter').value;
+        const searchInputElement = document.getElementById('searchInput');
+        const statusFilterElement = document.getElementById('statusFilter');
+
+        if (!searchInputElement || !statusFilterElement) {
+            console.error('Search input or status filter element not found');
+            return;
+        }
+
+        const searchTerm = searchInputElement.value.toLowerCase();
+        const statusFilter = statusFilterElement.value;
 
         let filteredVisits = this.visitsData;
 
@@ -75,7 +83,7 @@ class VisitorManagementApp {
 
         // Apply search filter
         if (searchTerm) {
-            filteredVisits = filteredVisits.filter(visit => 
+            filteredVisits = filteredVisits.filter(visit =>
                 visit.visitor.fullName.toLowerCase().includes(searchTerm) ||
                 visit.visitor.idNumber.toLowerCase().includes(searchTerm) ||
                 visit.visitor.cellNumber.toLowerCase().includes(searchTerm)
@@ -151,7 +159,7 @@ class VisitorManagementApp {
     async handleVisitorRegistration() {
         const form = document.getElementById('visitorForm');
         const formData = new FormData(form);
-        
+
         const visitorData = {
             fullName: formData.get('fullName'),
             idNumber: formData.get('idNumber'),
@@ -182,12 +190,12 @@ class VisitorManagementApp {
                 }
 
                 await this.db.addVisit(visitData);
-                
+
                 form.reset();
                 document.getElementById('itemsBody').innerHTML = '';
                 this.showPage('visitor-list');
                 await this.loadVisitorList();
-                
+
                 this.showAlert('Visitor registered successfully!', 'success');
             } catch (error) {
                 console.error('Error registering visitor:', error);
@@ -199,7 +207,7 @@ class VisitorManagementApp {
     collectItemsData() {
         const items = [];
         const rows = document.querySelectorAll('#itemsBody tr');
-        
+
         rows.forEach(row => {
             const item = {
                 name: row.querySelector('[name="itemName"]').value,
@@ -242,7 +250,7 @@ class VisitorManagementApp {
             console.log('Loading visitor list...');
             const visits = await this.db.getAllVisits();
             console.log('All visits:', visits);
-            
+
             if (!Array.isArray(visits) || visits.length === 0) {
                 console.log('No visits found in database');
                 const tbody = document.getElementById('visitorListBody');
@@ -268,20 +276,20 @@ class VisitorManagementApp {
                     return null;
                 }
             });
-            
+
             const allVisits = (await Promise.all(visitorPromises)).filter(Boolean);
             console.log('Final processed visits:', allVisits);
-            
+
             if (allVisits.length === 0) {
                 console.log('No valid visits after processing');
                 const tbody = document.getElementById('visitorListBody');
                 tbody.innerHTML = '<tr><td colspan="7" class="text-center">No valid visits found</td></tr>';
                 return;
             }
-            
+
             // Store the visits data for filtering
             this.visitsData = allVisits;
-            
+
             // Initial filter application
             this.filterVisits();
         } catch (error) {
@@ -296,7 +304,7 @@ class VisitorManagementApp {
         const start = moment(ingressTime);
         const end = egressTime ? moment(egressTime) : moment();
         const duration = moment.duration(end.diff(start));
-        
+
         if (egressTime) {
             const hours = Math.floor(duration.asHours());
             const minutes = Math.floor(duration.minutes());
@@ -361,7 +369,7 @@ class VisitorManagementApp {
                             <button class="btn btn-warning btn-sm me-1" onclick="app.editVisit(${visit.id})">
                                 <i class="fas fa-edit"></i> Update
                             </button>
-                            <button class="btn btn-danger btn-sm" onclick="app.markVisitorEgress(${visit.id})">
+                            <button class="btn btn-danger btn-sm" onclick="app.handleListEgress(${visit.id})">
                                 <i class="fas fa-sign-out-alt"></i> Egress
                             </button>
                         ` : ''}
@@ -403,11 +411,19 @@ class VisitorManagementApp {
 
     async filterVisits() {
         try {
-            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
-            const statusFilter = document.getElementById('statusFilter').value;
-            
+            const searchInputElement = document.getElementById('searchInput');
+            const statusFilterElement = document.getElementById('statusFilter');
+
+            if (!searchInputElement || !statusFilterElement) {
+                console.error('Search input or status filter element not found');
+                return;
+            }
+
+            const searchTerm = searchInputElement.value.toLowerCase();
+            const statusFilter = statusFilterElement.value;
+
             let visits = await this.db.getAllVisits();
-            
+
             // Filter by status
             if (statusFilter !== 'all') {
                 visits = visits.filter(visit => {
@@ -450,7 +466,7 @@ class VisitorManagementApp {
             if (!visitor) {
                 throw new Error('Visitor not found');
             }
-            
+
             // Store current visit for update
             this.currentVisitor = { visit, visitor };
 
@@ -540,11 +556,11 @@ class VisitorManagementApp {
         try {
             const form = e.target;
             const itemRows = document.getElementById('updateItemsBody').children;
-            
+
             if (!this.currentVisitor) {
                 throw new Error('No visitor data found for update');
             }
-            
+
             // Collect items data
             const items = Array.from(itemRows).map(row => ({
                 name: row.querySelector('[name="itemName"]').value.trim(),
@@ -584,6 +600,44 @@ class VisitorManagementApp {
         } catch (error) {
             console.error('Error updating visit:', error);
             this.showAlert('Error updating visit: ' + error.message, 'danger');
+        }
+    }
+
+    async handleCardEgress() {
+        if (!this.currentVisitor || !this.currentVisitor.visit || !this.currentVisitor.visitor) {
+            console.error('Current visitor data is incomplete:', this.currentVisitor);
+            this.showAlert('No visitor data found for egress', 'danger');
+            return;
+        }
+
+        try {
+            await this.db.updateVisit(this.currentVisitor.visit.id, {
+                egressTime: new Date()
+            });
+
+            const modal = bootstrap.Modal.getInstance(document.getElementById('visitorCardModal'));
+            modal.hide();
+
+            this.loadVisitorList();
+            this.showAlert('Visitor marked as egressed', 'success');
+        } catch (error) {
+            console.error('Error marking visitor egress:', error);
+            this.showAlert('Error marking visitor egress', 'danger');
+        }
+    }
+
+    async handleListEgress(visitId) {
+        try {
+            // console.log(`visit id is: ${visitId}`); return
+            await this.db.updateVisit(visitId, {
+                egressTime: new Date()
+            });
+
+            this.loadVisitorList();
+            this.showAlert('Visitor marked as egressed', 'success');
+        } catch (error) {
+            console.error('Error marking visitor egress:', error);
+            this.showAlert('Error marking visitor egress', 'danger');
         }
     }
 
@@ -667,39 +721,6 @@ class VisitorManagementApp {
         }
     }
 
-    async markVisitorEgress() {
-        if (!this.currentVisitor) return;
-
-        try {
-            await this.db.updateVisit(this.currentVisitor.visit.id, {
-                egressTime: new Date()
-            });
-            
-            const modal = bootstrap.Modal.getInstance(document.getElementById('visitorCardModal'));
-            modal.hide();
-            
-            this.loadVisitorList();
-            this.showAlert('Visitor marked as egressed', 'success');
-        } catch (error) {
-            console.error('Error marking visitor egress:', error);
-            this.showAlert('Error marking visitor egress', 'danger');
-        }
-    }
-
-    async markVisitorEgress(visitId) {
-        try {
-            await this.db.updateVisit(visitId, {
-                egressTime: new Date()
-            });
-            
-            this.loadVisitorList();
-            this.showAlert('Visitor marked as egressed', 'success');
-        } catch (error) {
-            console.error('Error marking visitor egress:', error);
-            this.showAlert('Error marking visitor egress', 'danger');
-        }
-    }
-
     showAlert(message, type) {
         const alertDiv = document.createElement('div');
         alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
@@ -707,7 +728,7 @@ class VisitorManagementApp {
             ${message}
             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
         `;
-        
+
         document.querySelector('.container').insertAdjacentElement('afterbegin', alertDiv);
         setTimeout(() => alertDiv.remove(), 3000);
     }

@@ -107,18 +107,21 @@ class VisitorDB {
         });
     }
 
-    async updateVisit(visitId, visitData, visitorData) {
+    async updateVisit(visitId, visitData, visitorData = false) {
         await this.ensureDB();
         return new Promise(async (resolve, reject) => {
             try {
-                // Update visitor data first
                 const visitorTx = this.db.transaction(['visitors'], 'readwrite');
                 const visitorStore = visitorTx.objectStore('visitors');
-                await new Promise((res, rej) => {
-                    const request = visitorStore.put(visitorData);
-                    request.onsuccess = () => res();
-                    request.onerror = () => rej('Error updating visitor');
-                });
+                if (visitorData) {
+                    // Update visitor data first
+                    console.log('Updating visitorData:', visitorData);
+                    await new Promise((res, rej) => {
+                        const request = visitorStore.put(visitorData);
+                        request.onsuccess = () => res();
+                        request.onerror = () => rej('Error updating visitor');
+                    });
+                }
 
                 // Then update visit data
                 const visitTx = this.db.transaction(['visits'], 'readwrite');
@@ -140,6 +143,8 @@ class VisitorDB {
                         visitorId: visit.visitorId // Preserve visitor reference
                     };
 
+                    console.log('Updating visitData:', updatedVisit);
+                    console.log('visitData structure:', JSON.stringify(visitData, null, 2));
                     const updateRequest = visitStore.put(updatedVisit);
                     updateRequest.onsuccess = () => resolve(updatedVisit);
                     updateRequest.onerror = () => reject('Error updating visit');
@@ -168,7 +173,7 @@ class VisitorDB {
 
                 visit.items = items;
                 const updateRequest = store.put(visit);
-                
+
                 updateRequest.onsuccess = () => resolve(visit);
                 updateRequest.onerror = () => reject('Error updating visit items');
             };
@@ -182,7 +187,7 @@ class VisitorDB {
         return new Promise((resolve, reject) => {
             const transaction = this.db.transaction(['visits'], 'readonly');
             const store = transaction.objectStore('visits');
-            const request = store.getAll(); 
+            const request = store.getAll();
 
             request.onsuccess = (event) => {
                 const visits = event.target.result || [];
