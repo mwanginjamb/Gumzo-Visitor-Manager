@@ -1,5 +1,5 @@
 const { DataTypes } = require('sequelize');
-const sequelize = require('../config/database');
+const sequelize = require('../config/sequelize');
 const Visitor = require('./visitor');
 
 const Visit = sequelize.define('Visit', {
@@ -9,7 +9,7 @@ const Visit = sequelize.define('Visit', {
         autoIncrement: true
     },
     visitorId: {
-        type: DataTypes.STRING,
+        type: DataTypes.STRING(50),
         allowNull: false,
         references: {
             model: Visitor,
@@ -17,7 +17,7 @@ const Visit = sequelize.define('Visit', {
         }
     },
     purpose: {
-        type: DataTypes.STRING,
+        type: DataTypes.STRING(200),
         allowNull: false
     },
     ingressTime: {
@@ -40,7 +40,29 @@ const Visit = sequelize.define('Visit', {
     }
 }, {
     tableName: 'visits',
-    timestamps: true
+    timestamps: true,
+    indexes: [
+        {
+            name: 'idx_visits_visitorid',
+            fields: ['visitorId']
+        },
+        {
+            name: 'idx_visits_ingresstime',
+            fields: ['ingressTime']
+        },
+        {
+            name: 'idx_visits_egresstime',
+            fields: ['egressTime']
+        },
+        {
+            name: 'idx_visits_lastsync',
+            fields: ['lastSync']
+        },
+        {
+            name: 'idx_visits_visitor_ingress',
+            fields: ['visitorId', 'ingressTime']
+        }
+    ]
 });
 
 Visit.belongsTo(Visitor, { foreignKey: 'visitorId' });

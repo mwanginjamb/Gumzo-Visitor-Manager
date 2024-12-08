@@ -1,7 +1,7 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
-const sequelize = require('./config/database');
+const sequelize = require('./config/sequelize');
 const syncRoutes = require('./routes/syncRoutes');
 
 const app = express();
@@ -21,8 +21,11 @@ async function startServer() {
         await sequelize.authenticate();
         console.log('Database connection established successfully.');
 
-        await sequelize.sync();
-        console.log('Database models synchronized.');
+        // Don't sync in production, use migrations instead
+        if (process.env.NODE_ENV !== 'production') {
+            await sequelize.sync();
+            console.log('Database models synchronized.');
+        }
 
         app.listen(PORT, () => {
             console.log(`Server is running on port ${PORT}`);

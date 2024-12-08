@@ -1,18 +1,18 @@
 const { DataTypes } = require('sequelize');
-const sequelize = require('../config/database');
+const sequelize = require('../config/sequelize');
 
 const Visitor = sequelize.define('Visitor', {
     idNumber: {
-        type: DataTypes.STRING,
+        type: DataTypes.STRING(50),
         primaryKey: true,
         allowNull: false
     },
     fullName: {
-        type: DataTypes.STRING,
+        type: DataTypes.STRING(100),
         allowNull: false
     },
     cellNumber: {
-        type: DataTypes.STRING,
+        type: DataTypes.STRING(20),
         allowNull: false
     },
     lastSync: {
@@ -22,7 +22,21 @@ const Visitor = sequelize.define('Visitor', {
     }
 }, {
     tableName: 'visitors',
-    timestamps: true
+    timestamps: true,
+    indexes: [
+        {
+            name: 'idx_visitors_fullname',
+            fields: ['fullName']
+        },
+        {
+            name: 'idx_visitors_cellnumber',
+            fields: ['cellNumber']
+        },
+        {
+            name: 'idx_visitors_lastsync',
+            fields: ['lastSync']
+        }
+    ]
 });
 
 module.exports = Visitor;
