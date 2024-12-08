@@ -51,28 +51,39 @@ class VisitorManagementApp {
         });
 
         // Search and Filter
-        document.getElementById('searchVisitor').addEventListener('input', (e) => {
+        document.getElementById('searchVisitor')?.addEventListener('input', (e) => {
             this.filterVisits();
         });
 
-        document.getElementById('statusFilter').addEventListener('change', (e) => {
+        document.getElementById('statusFilter')?.addEventListener('change', (e) => {
             this.filterVisits();
         });
 
         // Form submission
-        document.getElementById('visitorForm').addEventListener('submit', (e) => {
+        document.getElementById('visitorForm')?.addEventListener('submit', (e) => {
             e.preventDefault();
             this.handleVisitorRegistration();
         });
 
-        // Add item row
-        document.getElementById('addItemRow').addEventListener('click', () => {
+        // Update visit form submission
+        document.getElementById('updateVisitForm')?.addEventListener('submit', (e) => {
+            e.preventDefault();
+            this.handleUpdateVisit(e);
+        });
+
+        // Add item row buttons
+        document.getElementById('addItemRow')?.addEventListener('click', () => {
             this.addItemRow();
         });
 
+        document.getElementById('addUpdateItemRow')?.addEventListener('click', () => {
+            const row = this.createUpdateItemRow({});
+            document.getElementById('updateItemsBody').appendChild(row);
+        });
+
         // Mark egress
-        document.getElementById('markEgress').addEventListener('click', () => {
-            this.handleVisitorEgress();
+        document.getElementById('markEgress')?.addEventListener('click', () => {
+            this.handleCardEgress();
         });
 
         document.querySelector('[data-page="new-visitor"]')?.addEventListener('click', (event) => {
@@ -117,6 +128,7 @@ class VisitorManagementApp {
         filteredVisits.sort((a, b) => new Date(b.ingressTime) - new Date(a.ingressTime));
 
         this.renderVisitorList(filteredVisits);
+
     }
 
     showPage(pageId) {
@@ -395,7 +407,11 @@ class VisitorManagementApp {
                             <button class="btn btn-danger btn-sm" onclick="app.handleListEgress(${visit.id})">
                                 <i class="fas fa-sign-out-alt"></i> Egress
                             </button>
-                        ` : ''}
+                        ` : `
+                            <button class="btn btn-primary btn-sm" onclick="app.duplicateVisit(${visit.id})">
+                                <i class="fas fa-copy"></i> Duplicate
+                            </button>
+                        `}
                     </td>
                 `;
                 tbody.appendChild(row);
@@ -591,38 +607,32 @@ class VisitorManagementApp {
                 type: row.querySelector('[name="itemType"]').value.trim()
             }));
 
-            // Validate required fields
-            const fullName = form.querySelector('[name="fullName"]').value.trim();
-            const cellNumber = form.querySelector('[name="cellNumber"]').value.trim();
+            // Get form data
             const purpose = form.querySelector('[name="purpose"]').value.trim();
 
-            if (!fullName || !cellNumber || !purpose) {
+            if (!purpose || items.some(item => !item.name || !item.identifier || !item.type)) {
                 throw new Error('Please fill in all required fields');
             }
 
-            // Prepare visitor and visit data
-            const visitorData = {
-                ...this.currentVisitor.visitor,
-                fullName,
-                cellNumber
-            };
-
+            // Create new visit data
             const visitData = {
-                ...this.currentVisitor.visit,
+                visitorId: this.currentVisitor.visitor.idNumber,
                 purpose,
-                items
+                items,
+                ingressTime: new Date().toISOString(),
+                egressTime: null
             };
 
-            // Update in database
-            await this.db.updateVisit(this.currentVisitor.visit.id, visitData, visitorData);
+            // Add new visit to database
+            await this.db.addVisit(visitData);
 
             // Show success and return to list
-            this.showAlert('Visit updated successfully', 'success');
+            this.showAlert('New visit created successfully', 'success');
             await this.loadVisitorList();
             this.showPage('visitor-list');
         } catch (error) {
-            console.error('Error updating visit:', error);
-            this.showAlert('Error updating visit: ' + error.message, 'danger');
+            console.error('Error creating new visit:', error);
+            this.showAlert('Error creating new visit: ' + error.message, 'danger');
         }
     }
 
@@ -741,6 +751,52 @@ class VisitorManagementApp {
         } catch (error) {
             console.error('Error deleting visitor item:', error);
             this.showAlert('Error deleting item: ' + error.message, 'danger');
+        }
+    }
+
+    async duplicateVisit(visitId) {
+        try {
+            // Get the original visit and visitor data
+            const visit = await this.db.getVisit(visitId);
+            const visitor = await this.db.getVisitor(visit.visitorId);
+
+            if (!visit || !visitor) {
+                throw new Error('Visit or visitor data not found');
+            }
+
+            // Store the data for the new visit form
+            this.currentVisitor = {
+                visitor: visitor,
+                visit: {
+                    ...visit,
+                    id: null, // Clear the ID for new visit
+                    ingressTime: new Date().toISOString(),
+                    egressTime: null,
+                    items: visit.items.map(item => ({ ...item })) // Clone items array
+                }
+            };
+
+            // Show the update visit page
+            this.showPage('update-visit');
+
+            // Pre-fill the form
+            const form = document.getElementById('updateVisitForm');
+            if (form) {
+                form.querySelector('[name="fullName"]').value = visitor.fullName;
+                form.querySelector('[name="cellNumber"]').value = visitor.cellNumber;
+                form.querySelector('[name="purpose"]').value = visit.purpose;
+
+                // Clear and populate items
+                const itemsBody = document.getElementById('updateItemsBody');
+                itemsBody.innerHTML = '';
+                visit.items.forEach(item => {
+                    const row = this.createUpdateItemRow(item);
+                    itemsBody.appendChild(row);
+                });
+            }
+        } catch (error) {
+            console.error('Error duplicating visit:', error);
+            this.showAlert('Error duplicating visit: ' + error.message, 'danger');
         }
     }
 
