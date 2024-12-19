@@ -121,14 +121,17 @@ class VisitorDB {
                         request.onsuccess = () => res();
                         request.onerror = () => rej('Error updating visitor');
                     });
+
                 }
 
                 // Then update visit data
+                console.log(`visit id to work with is: ${visitId}`);
                 const visitTx = this.db.transaction(['visits'], 'readwrite');
                 const visitStore = visitTx.objectStore('visits');
                 const request = visitStore.get(visitId);
 
                 request.onsuccess = () => {
+                    console.log(request.result)
                     const visit = request.result;
                     if (!visit) {
                         reject('Visit not found');

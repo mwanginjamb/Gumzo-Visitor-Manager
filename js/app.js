@@ -64,10 +64,10 @@ class VisitorManagementApp {
         });
 
         // Update visit form submission
-        document.getElementById('updateVisitForm')?.addEventListener('submit', (e) => {
+        /*document.getElementById('updateVisitForm')?.addEventListener('submit', (e) => {
             e.preventDefault();
             this.handleUpdateVisit(e);
-        });
+        });*/
 
         // Add item row buttons
         document.getElementById('addItemRow')?.addEventListener('click', () => {
@@ -489,8 +489,8 @@ class VisitorManagementApp {
                 filteredVisits = filteredVisits.filter(visit => {
                     const visitor = visit.visitor;
                     return visitor.fullName.toLowerCase().includes(searchTerm) ||
-                           visitor.idNumber.toLowerCase().includes(searchTerm) ||
-                           visitor.cellNumber.toLowerCase().includes(searchTerm);
+                        visitor.idNumber.toLowerCase().includes(searchTerm) ||
+                        visitor.cellNumber.toLowerCase().includes(searchTerm);
                 });
             }
 
@@ -524,7 +524,7 @@ class VisitorManagementApp {
             this.showPage('update-visit');
 
             // Get form elements after page is shown
-            const form = document.getElementById('updateVisitorForm');
+            const form = document.getElementById('updateVisitForm');
             if (!form) {
                 throw new Error('Update form not found');
             }
@@ -534,6 +534,7 @@ class VisitorManagementApp {
             const idNumberInput = form.querySelector('[name="idNumber"]');
             const cellNumberInput = form.querySelector('[name="cellNumber"]');
             const purposeInput = form.querySelector('[name="purpose"]');
+            const visitIdInput = form.querySelector('[name="visitId"]');
 
             if (!fullNameInput || !idNumberInput || !cellNumberInput || !purposeInput) {
                 throw new Error('Required form fields not found');
@@ -544,6 +545,7 @@ class VisitorManagementApp {
             idNumberInput.value = visitor.idNumber || '';
             cellNumberInput.value = visitor.cellNumber || '';
             purposeInput.value = visit.purpose || '';
+            visitIdInput.value = visitId || '';
 
             // Populate items table
             const itemsBody = document.getElementById('updateItemsBody');
@@ -620,30 +622,38 @@ class VisitorManagementApp {
 
             // Get form data
             const purpose = form.querySelector('[name="purpose"]').value.trim();
+            const visit = form.querySelector('[name="visitId"]').value.trim();
+            const name = form.querySelector('[name="fullName"]').value.trim();
+            const cellNumber = form.querySelector('[name="cellNumber"]').value.trim();
+            const idNumber = form.querySelector('[name="idNumber"]').value.trim();
 
             if (!purpose || items.some(item => !item.name || !item.identifier || !item.type)) {
                 throw new Error('Please fill in all required fields');
             }
 
-            // Create new visit data
+            // Update visit data
             const visitData = {
-                visitorId: this.currentVisitor.visitor.idNumber,
                 purpose,
-                items,
-                ingressTime: new Date().toISOString(),
-                egressTime: null
+                items
             };
 
-            // Add new visit to database
-            await this.db.addVisit(visitData);
+            // Update visitor Data
+            const visitor = {
+                idNumber: this.currentVisitor.visitor.idNumber,
+                fullName: name,
+                cellNumber
+            };
+
+            //update DB;
+            await this.db.updateVisit(this.currentVisitor.visit.id, visitData, visitor)
 
             // Show success and return to list
-            this.showAlert('New visit created successfully', 'success');
+            this.showAlert('visit Updated Successfully', 'success');
             await this.loadVisitorList();
             this.showPage('visitor-list');
         } catch (error) {
-            console.error('Error creating new visit:', error);
-            this.showAlert('Error creating new visit: ' + error.message, 'danger');
+            console.error('Error Updating visit:', error);
+            this.showAlert('Error Updating visit: ' + error.message, 'danger');
         }
     }
 
@@ -672,7 +682,7 @@ class VisitorManagementApp {
 
     async handleListEgress(visitId) {
         try {
-            // console.log(`visit id is: ${visitId}`); return
+            console.log(`Egress visit id is: ${visitId}`);
             await this.db.updateVisit(visitId, {
                 egressTime: new Date()
             });
@@ -854,7 +864,7 @@ class VisitorManagementApp {
         }, this.syncInterval);
     }
 
-    showAlert(message, type, duration = 3000) {
+    showAlert(message, type, duration = 10000) {
         const alertDiv = document.createElement('div');
         alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
         alertDiv.innerHTML = `

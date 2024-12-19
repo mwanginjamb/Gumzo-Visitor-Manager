@@ -138,15 +138,23 @@
                 <form id="updateVisitForm">
                     <div class="mb-3">
                         <label for="fullName" class="form-label">Full Name</label>
-                        <input type="text" class="form-control" name="fullName" required readonly>
+                        <input type="text" class="form-control" name="fullName">
                     </div>
                     <div class="mb-3">
                         <label for="cellNumber" class="form-label">Cell Number</label>
-                        <input type="text" class="form-control" name="cellNumber" required readonly>
+                        <input type="text" class="form-control" name="cellNumber">
                     </div>
                     <div class="mb-3">
                         <label for="purpose" class="form-label">Purpose of Visit</label>
                         <input type="text" class="form-control" name="purpose" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="idNumber" class="form-label">ID Number</label>
+                        <input type="text" class="form-control" name="idNumber" required>
+                    </div>
+                    <div class="mb-3">
+                        <!-- <label for="visitId" class="form-label">Visit ID</label> -->
+                        <input type="hidden" class="form-control" name="visitId" required>
                     </div>
 
                     <h6 class="mt-4 mb-3">Items</h6>
