@@ -74,10 +74,10 @@ class VisitorManagementApp {
             this.addItemRow();
         });
 
-        document.getElementById('addUpdateItemRow')?.addEventListener('click', () => {
+        /* document.getElementById('addUpdateItemRow')?.addEventListener('click', () => {
             const row = this.createUpdateItemRow({});
             document.getElementById('updateItemsBody').appendChild(row);
-        });
+        }); */
 
         // Mark egress
         document.getElementById('markEgress')?.addEventListener('click', () => {
@@ -124,7 +124,6 @@ class VisitorManagementApp {
 
         // Sort by ingress time
         filteredVisits.sort((a, b) => new Date(b.ingressTime) - new Date(a.ingressTime));
-
         this.renderVisitorList(filteredVisits);
 
     }
@@ -376,6 +375,7 @@ class VisitorManagementApp {
             try {
                 // If visitor data is already included in the visit object, use it
                 const visitor = visit.visitor || await this.db.getVisitor(visit.visitorId);
+
                 if (!visitor) {
                     console.error('Visitor not found for visit:', visit);
                     continue;
@@ -440,6 +440,7 @@ class VisitorManagementApp {
                 console.error('No visits returned from database');
                 return;
             }
+            visits.sort((a, b) => new Date(b.ingressTime) - new Date(a.ingressTime));
             await this.renderVisitorList(visits);
         } catch (error) {
             console.error('Error loading visitor list:', error);
@@ -797,18 +798,21 @@ class VisitorManagementApp {
                 }
             };
 
+
+
             // Show the update visit page
-            this.showPage('update-visit');
+            this.showPage('new-visitor');
 
             // Pre-fill the form
-            const form = document.getElementById('updateVisitForm');
+            const form = document.getElementById('visitorForm');
             if (form) {
                 form.querySelector('[name="fullName"]').value = visitor.fullName;
                 form.querySelector('[name="cellNumber"]').value = visitor.cellNumber;
                 form.querySelector('[name="purpose"]').value = visit.purpose;
+                form.querySelector('[name="idNumber"]').value = visit.visitorId;
 
                 // Clear and populate items
-                const itemsBody = document.getElementById('updateItemsBody');
+                const itemsBody = document.getElementById('itemsBody');
                 itemsBody.innerHTML = '';
                 visit.items.forEach(item => {
                     const row = this.createUpdateItemRow(item);
